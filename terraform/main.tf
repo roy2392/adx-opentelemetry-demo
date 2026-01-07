@@ -108,6 +108,25 @@ module "identity" {
 }
 
 # =============================================================================
+# Azure Communication Services Module (for Email Alerts)
+# =============================================================================
+
+module "communication" {
+  source = "./modules/communication"
+  count  = var.enable_email_alerts ? 1 : 0
+
+  communication_service_name = "${local.resource_prefix}-comm"
+  resource_group_name        = azurerm_resource_group.main.name
+  data_location              = var.communication_data_location
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  create_smtp_entra_app      = var.create_smtp_entra_app
+
+  tags = local.common_tags
+}
+
+data "azurerm_client_config" "current" {}
+
+# =============================================================================
 # Generate Helm Values File for Azure Deployment (Workload Identity)
 # =============================================================================
 
@@ -160,6 +179,34 @@ resource "local_file" "helm_values" {
       adxDatasource:
         clientId: "${module.identity.grafana_adx_client_id}"
         clientSecret: "${module.identity.grafana_adx_client_secret}"
+      # Alerting Configuration
+      alerting:
+        enabled: true
+        thresholds:
+          errorRatePercent: 5
+          p95LatencyMs: 500
+          errorLogsCount: 10
+%{if var.enable_email_alerts && length(module.communication) > 0~}
+        # Azure Communication Services - configure SMTP manually in Grafana UI
+        # See: https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication
+        smtp:
+          enabled: false
+          host: "smtp.azurecomm.net"
+          port: 587
+          user: ""  # Format: <COMM_SERVICE_NAME>.<ENTRA_APP_ID>.<TENANT_ID>
+          password: ""  # Entra app client secret
+          fromAddress: "${module.communication[0].from_email_address}"
+          fromName: "OTel Demo Alerts"
+          toAddresses: "${var.alert_recipients}"
+          skipVerify: false
+%{else~}
+        smtp:
+          enabled: false
+%{endif~}
+        slack:
+          enabled: false
+        teams:
+          enabled: false
 
     # OpenTelemetry Collector Configuration
     otelCollector:
@@ -183,7 +230,7 @@ resource "local_file" "helm_values" {
         maxElapsedTime: 300s
   EOT
 
-  depends_on = [module.identity, module.adx]
+  depends_on = [module.identity, module.adx, module.communication]
 }
 
 # =============================================================================
