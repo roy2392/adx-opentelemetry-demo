@@ -11,13 +11,12 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # Default node pool configuration
   default_node_pool {
-    name                = var.default_node_pool_name
-    vm_size             = var.default_node_pool_vm_size
-    node_count          = var.enable_auto_scaling ? null : var.default_node_pool_count
-    min_count           = var.enable_auto_scaling ? var.default_node_pool_min_count : null
-    max_count           = var.enable_auto_scaling ? var.default_node_pool_max_count : null
-    enable_auto_scaling = var.enable_auto_scaling
-    vnet_subnet_id      = var.subnet_id
+    name            = var.default_node_pool_name
+    vm_size         = var.default_node_pool_vm_size
+    node_count      = var.enable_auto_scaling ? null : var.default_node_pool_count
+    min_count       = var.enable_auto_scaling ? var.default_node_pool_min_count : null
+    max_count       = var.enable_auto_scaling ? var.default_node_pool_max_count : null
+    vnet_subnet_id  = var.subnet_id
 
     # Node labels for workload placement
     node_labels = {
@@ -53,16 +52,13 @@ resource "azurerm_kubernetes_cluster" "main" {
     log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   }
 
-  # RBAC configuration
-  role_based_access_control_enabled = true
+  # # RBAC configuration
+  # role_based_access_control_enabled = true
 
-  azure_active_directory_role_based_access_control {
-    managed            = true
-    azure_rbac_enabled = true
-  }
-
-  # Automatic upgrade channel
-  automatic_channel_upgrade = "patch"
+  # azure_active_directory_role_based_access_control {
+  #   managed            = true
+  #   azure_rbac_enabled = true
+  # }
 
   # Maintenance window (weekends, off-hours)
   maintenance_window {

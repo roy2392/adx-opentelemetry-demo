@@ -56,3 +56,15 @@ variable "create_smtp_entra_app" {
   type        = bool
   default     = true
 }
+
+variable "external_service_principal_id" {
+  description = "Object ID of an external service principal to grant Communication and Email Service Owner role. Use this to allow an external identity to send emails via SMTP."
+  type        = string
+  default     = null
+}
+
+variable "external_service_principal_role" {
+  description = "Role to assign to the external service principal. Recommended: 'Communication and Email Service Owner' for SMTP access."
+  type        = string
+  default     = "Communication and Email Service Owner"
+}

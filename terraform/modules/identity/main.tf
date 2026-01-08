@@ -59,6 +59,9 @@ resource "azurerm_kusto_database_principal_assignment" "otel_ingestor" {
   principal_id   = azurerm_user_assigned_identity.otel_collector.client_id
   principal_type = "App"
   role           = "Ingestor"
+  lifecycle {
+    ignore_changes = [ tenant_id ]
+  }
 }
 
 resource "azurerm_kusto_database_principal_assignment" "otel_viewer" {
@@ -73,6 +76,9 @@ resource "azurerm_kusto_database_principal_assignment" "otel_viewer" {
   principal_id   = azurerm_user_assigned_identity.otel_collector.client_id
   principal_type = "App"
   role           = "Viewer"
+    lifecycle {
+    ignore_changes = [ tenant_id ]
+  }
 }
 
 # =============================================================================
@@ -84,18 +90,27 @@ resource "azurerm_kusto_database_principal_assignment" "otel_viewer" {
 resource "azuread_application" "grafana_adx" {
   display_name = "${var.identity_name}-grafana-adx"
   owners       = [data.azurerm_client_config.current.object_id]
+  lifecycle {
+    ignore_changes = [ owners ]
+  }
 }
 
 resource "azuread_service_principal" "grafana_adx" {
   client_id                    = azuread_application.grafana_adx.client_id
   app_role_assignment_required = false
   owners                       = [data.azurerm_client_config.current.object_id]
+  lifecycle {
+    ignore_changes = [ owners ]
+  }
 }
 
 resource "azuread_application_password" "grafana_adx" {
   application_id = azuread_application.grafana_adx.id
   display_name   = "grafana-adx-secret"
   end_date       = timeadd(timestamp(), "8760h") # 1 year
+  lifecycle {
+    ignore_changes = [ end_date ]
+  }
 }
 
 # Wait for Service Principal propagation
@@ -117,4 +132,7 @@ resource "azurerm_kusto_database_principal_assignment" "grafana_viewer" {
   principal_id   = azuread_application.grafana_adx.client_id
   principal_type = "App"
   role           = "Viewer"
+  lifecycle {
+    ignore_changes = [ tenant_id ]
+  }
 }

@@ -16,7 +16,7 @@ To learn more about the release, try:
    Then open: http://localhost:8080
 
 2. Grafana (Dashboards):
-   kubectl port-forward -n {{ .Values.namespace }} svc/grafana 3000:3000
+   kubectl port-forward -n {{ .Values.namespace }} svc/grafana 3000:80
    Then open: http://localhost:3000/grafana
    {{- if .Values.grafana.enabled }}
    Username: {{ .Values.grafana.adminUser }}

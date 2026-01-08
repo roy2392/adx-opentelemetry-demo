@@ -14,7 +14,7 @@ adx:
   # ADX cluster URI (e.g., https://mycluster.eastus.kusto.windows.net)
   clusterUri: ""
   # ADX database name
-  database: "otel_demo"
+  database: "otel_demo-adx"
   # Table names for telemetry data
   tables:
     traces: "OTelTraces"
@@ -98,13 +98,13 @@ grafana:
     # Supports: SendGrid, Azure Communication Services, Gmail, etc.
     smtp:
       enabled: false
-      host: ""           # e.g., smtp.sendgrid.net
+      host: "" # e.g., smtp.sendgrid.net
       port: 587
-      user: ""           # e.g., apikey (for SendGrid)
-      password: ""       # e.g., your SendGrid API key
-      fromAddress: ""    # e.g., alerts@yourdomain.com
+      user: "" # e.g., apikey (for SendGrid)
+      password: "" # e.g., your SendGrid API key
+      fromAddress: "" # e.g., alerts@yourdomain.com
       fromName: "Grafana Alerts"
-      toAddresses: ""    # Comma-separated list of recipient emails
+      toAddresses: "" # Comma-separated list of recipient emails
       # Skip TLS verification (not recommended for production)
       skipVerify: false
 
@@ -114,8 +114,8 @@ grafana:
     # Get webhook URL from: Slack > Apps > Incoming Webhooks
     slack:
       enabled: false
-      webhookUrl: ""     # e.g., https://hooks.slack.com/services/xxx/yyy/zzz
-      channel: ""        # Optional: override default channel
+      webhookUrl: "" # e.g., https://hooks.slack.com/services/xxx/yyy/zzz
+      channel: "" # Optional: override default channel
 
     # -----------------------------------------------------------------------
     # Microsoft Teams Notifications
@@ -123,7 +123,7 @@ grafana:
     # Get webhook URL from: Teams > Channel > Connectors > Incoming Webhook
     teams:
       enabled: false
-      webhookUrl: ""     # e.g., https://outlook.office.com/webhook/xxx
+      webhookUrl: "" # e.g., https://outlook.office.com/webhook/xxx
 
 # OpenTelemetry Collector configuration
 otelCollector:

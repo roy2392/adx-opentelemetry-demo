@@ -114,12 +114,12 @@ module "identity" {
 module "communication" {
   source = "./modules/communication"
   count  = var.enable_email_alerts ? 1 : 0
-
   communication_service_name = "${local.resource_prefix}-comm"
   resource_group_name        = azurerm_resource_group.main.name
   data_location              = var.communication_data_location
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   create_smtp_entra_app      = var.create_smtp_entra_app
+  external_service_principal_id = module.identity.grafana_adx_client_id
 
   tags = local.common_tags
 }
@@ -190,11 +190,11 @@ resource "local_file" "helm_values" {
         # Azure Communication Services - configure SMTP manually in Grafana UI
         # See: https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication
         smtp:
-          enabled: false
+          enabled: true
           host: "smtp.azurecomm.net"
           port: 587
-          user: ""  # Format: <COMM_SERVICE_NAME>.<ENTRA_APP_ID>.<TENANT_ID>
-          password: ""  # Entra app client secret
+          user: "${module.communication[0].from_email_address}"  
+          password: "${module.identity.grafana_adx_client_secret}"  # Entra app client secret
           fromAddress: "${module.communication[0].from_email_address}"
           fromName: "OTel Demo Alerts"
           toAddresses: "${var.alert_recipients}"
@@ -233,12 +233,3 @@ resource "local_file" "helm_values" {
   depends_on = [module.identity, module.adx, module.communication]
 }
 
-# =============================================================================
-# Generate Kubeconfig
-# =============================================================================
-
-resource "local_file" "kubeconfig" {
-  filename        = "${path.module}/kubeconfig"
-  content         = module.aks.kube_config_raw
-  file_permission = "0600"
-}

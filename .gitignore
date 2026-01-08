@@ -68,3 +68,4 @@ terraform/*.tfvars
 # Azure/ADX Generated Files (contain sensitive credentials)
 kubernetes/azure/secrets.yaml
 kubernetes/opentelemetry-demo-chart/values-generated.yaml
+src/grafana/grafana.ini

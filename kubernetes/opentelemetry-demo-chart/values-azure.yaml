@@ -34,7 +34,7 @@ adx:
   clusterUri: ""
 
   # Database name (created by Terraform or manually)
-  database: "otel_demo"
+  database: "otel_demo-adx"
 
   # Table names (must match schema in adx/schema.kql)
   tables:

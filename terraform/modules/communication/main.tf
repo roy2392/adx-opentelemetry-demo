@@ -49,6 +49,10 @@ resource "azurerm_communication_service_email_domain_association" "this" {
   email_service_domain_id  = azurerm_email_communication_service_domain.azure_managed.id
 }
 
+resource "azurerm_email_communication_service_domain_sender_username" "example" {
+  name                    = "DoNotReply"
+  email_service_domain_id = azurerm_email_communication_service_domain.azure_managed.id
+}
 # -----------------------------------------------------------------------------
 # Entra ID Application for SMTP Authentication (Optional)
 # -----------------------------------------------------------------------------
@@ -86,6 +90,17 @@ resource "azuread_application_password" "smtp" {
 resource "azurerm_role_assignment" "smtp_contributor" {
   count                = var.create_smtp_entra_app ? 1 : 0
   scope                = azurerm_communication_service.this.id
-  role_definition_name = "Contributor"
+  role_definition_name = "Communication and Email Service Owner"
   principal_id         = azuread_service_principal.smtp[0].object_id
+}
+
+# -----------------------------------------------------------------------------
+# Role Assignment for External Service Principal
+# -----------------------------------------------------------------------------
+# Assign role to an external service principal provided by the user
+resource "azurerm_role_assignment" "external_sp" {
+  count                = var.external_service_principal_id != null ? 1 : 0
+  scope                = azurerm_communication_service.this.id
+  role_definition_name = var.external_service_principal_role
+  principal_id         = var.external_service_principal_id
 }

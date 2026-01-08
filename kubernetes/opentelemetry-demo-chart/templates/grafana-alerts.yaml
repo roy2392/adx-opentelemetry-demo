@@ -1,6 +1,5 @@
 {{- if and .Values.grafana.enabled .Values.grafana.alerting.enabled }}
 # Grafana Alert Rules for ADX Observability
-# These alerts use KQL queries against Azure Data Explorer
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,143 +11,163 @@ metadata:
     app.kubernetes.io/instance: opentelemetry-demo
     app.kubernetes.io/component: alerting
 data:
-  alerting.yaml: |
+  contact-points.yaml: |
     apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: email-alerts
+        receivers:
+          - uid: email-receiver-1
+            type: email
+            settings:
+              addresses: {{ .Values.grafana.alerting.smtp.toAddresses | quote }}
+              singleEmail: false
+            disableResolveMessage: false
+  notification-policies.yaml: |
+    apiVersion: 1
+    policies:
+      - orgId: 1
+        receiver: email-alerts
+        group_by:
+          - grafana_folder
+          - alertname
+        group_wait: 10s
+        group_interval: 5m
+        repeat_interval: 4h
 
-    # =================================================================
-    # Alert Rules - KQL-based queries against ADX
-    # =================================================================
+  adx-alerts.yaml: |
+    apiVersion: 1
     groups:
       - orgId: 1
         name: ADX Observability Alerts
         folder: ADX Alerts
         interval: 1m
         rules:
-          # ---------------------------------------------------------
           # High Error Rate Alert
-          # Triggers when error rate exceeds threshold
-          # ---------------------------------------------------------
           - uid: adx-high-error-rate
             title: High Error Rate Detected
-            condition: error_threshold
+            condition: B
             data:
-              - refId: error_rate
+              - refId: A
+                queryType: ''
                 relativeTimeRange:
                   from: 300
                   to: 0
                 datasourceUid: adx-telemetry
                 model:
-                  querySource: raw
-                  resultFormat: table
-                  clusterUri: {{ .Values.adx.clusterUri | quote }}
-                  database: {{ .Values.adx.database | quote }}
-                  query: |
+                  expr: |
                     OTelTraces
                     | where Timestamp > ago(5m)
                     | summarize TotalSpans = count(), ErrorSpans = countif(StatusCode == "Error" or StatusCode == "STATUS_CODE_ERROR")
                     | extend ErrorRate = round(100.0 * ErrorSpans / TotalSpans, 2)
                     | project ErrorRate
-              - refId: error_threshold
+                  refId: A
+              - refId: B
+                queryType: ''
                 relativeTimeRange:
-                  from: 300
+                  from: 0
                   to: 0
                 datasourceUid: __expr__
                 model:
-                  type: threshold
-                  expression: error_rate
                   conditions:
                     - evaluator:
-                        type: gt
                         params:
                           - {{ .Values.grafana.alerting.thresholds.errorRatePercent }}
+                        type: gt
                       operator:
                         type: and
+                      query:
+                        params:
+                          - A
                       reducer:
+                        params: []
                         type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  reducer: last
+                  type: threshold
             noDataState: NoData
             execErrState: Error
             for: 2m
             annotations:
               summary: Error rate is above {{ .Values.grafana.alerting.thresholds.errorRatePercent }}%
-              description: |
-                The overall error rate has exceeded the threshold.
-                Current error rate: {{`{{ $values.error_rate.Value }}`}}%
+              description: "The overall error rate has exceeded the threshold. Current error rate: {{ `{{ $values.A.Value }}` }}%"
             labels:
               severity: critical
               category: errors
 
-          # ---------------------------------------------------------
           # High Latency Alert (P95)
-          # Triggers when P95 latency exceeds threshold
-          # ---------------------------------------------------------
           - uid: adx-high-latency
             title: High P95 Latency Detected
-            condition: latency_threshold
+            condition: B
             data:
-              - refId: p95_latency
+              - refId: A
+                queryType: ''
                 relativeTimeRange:
                   from: 300
                   to: 0
                 datasourceUid: adx-telemetry
                 model:
-                  querySource: raw
-                  resultFormat: table
-                  clusterUri: {{ .Values.adx.clusterUri | quote }}
-                  database: {{ .Values.adx.database | quote }}
-                  query: |
+                  expr: |
                     OTelTraces
                     | where Timestamp > ago(5m)
                     | where ParentSpanId == ""
                     | summarize P95Latency = percentile(Duration / 1000000.0, 95)
                     | project P95Latency
-              - refId: latency_threshold
+                  refId: A
+              - refId: B
+                queryType: ''
                 relativeTimeRange:
-                  from: 300
+                  from: 0
                   to: 0
                 datasourceUid: __expr__
                 model:
-                  type: threshold
-                  expression: p95_latency
                   conditions:
                     - evaluator:
-                        type: gt
                         params:
                           - {{ .Values.grafana.alerting.thresholds.p95LatencyMs }}
+                        type: gt
                       operator:
                         type: and
+                      query:
+                        params:
+                          - A
                       reducer:
+                        params: []
                         type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  reducer: last
+                  type: threshold
             noDataState: NoData
             execErrState: Error
             for: 3m
             annotations:
               summary: P95 latency is above {{ .Values.grafana.alerting.thresholds.p95LatencyMs }}ms
-              description: |
-                The P95 latency for root spans has exceeded the threshold.
-                Current P95 latency: {{`{{ $values.p95_latency.Value }}`}}ms
+              description: "The P95 latency for root spans has exceeded the threshold. Current P95 latency: {{ `{{ $values.A.Value }}` }}ms"
             labels:
               severity: warning
               category: latency
 
-          # ---------------------------------------------------------
           # Service Down Alert
-          # Triggers when no spans received from a service
-          # ---------------------------------------------------------
           - uid: adx-service-down
             title: Service Not Reporting
-            condition: no_spans_threshold
+            condition: B
             data:
-              - refId: service_spans
+              - refId: A
+                queryType: ''
                 relativeTimeRange:
                   from: 300
                   to: 0
                 datasourceUid: adx-telemetry
                 model:
-                  querySource: raw
-                  resultFormat: table
-                  clusterUri: {{ .Values.adx.clusterUri | quote }}
-                  database: {{ .Values.adx.database | quote }}
-                  query: |
+                  expr: |
                     let expected_services = dynamic(["frontend", "cart", "checkout", "payment", "product-catalog", "currency", "shipping", "recommendation", "ad"]);
                     OTelTraces
                     | where Timestamp > ago(5m)
@@ -156,84 +175,96 @@ data:
                     | summarize ActiveCount = count()
                     | extend MissingServices = 9 - ActiveCount
                     | project MissingServices
-              - refId: no_spans_threshold
+                  refId: A
+              - refId: B
+                queryType: ''
                 relativeTimeRange:
-                  from: 300
+                  from: 0
                   to: 0
                 datasourceUid: __expr__
                 model:
-                  type: threshold
-                  expression: service_spans
                   conditions:
                     - evaluator:
-                        type: gt
                         params:
                           - 0
+                        type: gt
                       operator:
                         type: and
+                      query:
+                        params:
+                          - A
                       reducer:
+                        params: []
                         type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  reducer: last
+                  type: threshold
             noDataState: Alerting
             execErrState: Error
             for: 5m
             annotations:
               summary: One or more services are not reporting
-              description: |
-                Expected services are not sending telemetry data.
-                Missing services count: {{`{{ $values.service_spans.Value }}`}}
+              description: "Expected services are not sending telemetry data. Missing services count: {{ `{{ $values.A.Value }}` }}"
             labels:
               severity: critical
               category: availability
 
-          # ---------------------------------------------------------
           # Error Logs Spike Alert
-          # Triggers when error logs exceed threshold
-          # ---------------------------------------------------------
           - uid: adx-error-logs-spike
             title: Error Logs Spike Detected
-            condition: error_logs_threshold
+            condition: B
             data:
-              - refId: error_logs
+              - refId: A
+                queryType: ''
                 relativeTimeRange:
                   from: 300
                   to: 0
                 datasourceUid: adx-telemetry
                 model:
-                  querySource: raw
-                  resultFormat: table
-                  clusterUri: {{ .Values.adx.clusterUri | quote }}
-                  database: {{ .Values.adx.database | quote }}
-                  query: |
+                  expr: |
                     OTelLogs
                     | where Timestamp > ago(5m)
                     | where SeverityText == "ERROR" or SeverityNumber >= 17
                     | summarize ErrorCount = count()
                     | project ErrorCount
-              - refId: error_logs_threshold
+                  refId: A
+              - refId: B
+                queryType: ''
                 relativeTimeRange:
-                  from: 300
+                  from: 0
                   to: 0
                 datasourceUid: __expr__
                 model:
-                  type: threshold
-                  expression: error_logs
                   conditions:
                     - evaluator:
-                        type: gt
                         params:
                           - {{ .Values.grafana.alerting.thresholds.errorLogsCount }}
+                        type: gt
                       operator:
                         type: and
+                      query:
+                        params:
+                          - A
                       reducer:
+                        params: []
                         type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  reducer: last
+                  type: threshold
             noDataState: NoData
             execErrState: Error
             for: 2m
             annotations:
               summary: High number of error logs detected
-              description: |
-                Error log count has exceeded the threshold in the last 5 minutes.
-                Current error count: {{`{{ $values.error_logs.Value }}`}}
+              description: "Error log count has exceeded the threshold in the last 5 minutes. Current error count: {{ `{{ $values.A.Value }}` }}"
             labels:
               severity: warning
               category: logs
